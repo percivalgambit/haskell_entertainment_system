@@ -2,11 +2,12 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module ParseNesFile (parseNesFile, NesFile(..), PrgConfig(..), ChrConfig(..), PpuConfig(..), PpuTiming, ConsoleType, Mirroring, FileFormat) where
+module NesFile (parseNesFile, NesFile(..), PrgConfig(..), ChrConfig(..), PpuConfig(..), PpuTiming, ConsoleType, Mirroring, FileFormat, filePrgRom, fileChrRom) where
 
 import           BitGet          (BitGet, getAsWord16, getAsWord32, getAsWord8,
                                   getBit, getByteString, isEmpty, lookAhead,
                                   remaining, runBitGet, skip)
+import           MemoryBank      (ChrRomData (..), PrgRomData (..))
 
 import           Control.Lens    (makeLenses, (&), (.~), (?~), (^.))
 import           Control.Monad   (unless)
@@ -62,16 +63,14 @@ makeLenses ''Header
 -- TODO: implement Trainer
 data Trainer = Trainer deriving (Show)
 
-newtype PrgRom = PrgRom B.ByteString deriving (Show)
-newtype ChrRom = ChrRom B.ByteString deriving (Show)
-
 data NesFile = NesFile
-    { header  :: Header
-    , trainer :: Maybe Trainer
-    , prgRom  :: PrgRom
-    , chrRom  :: ChrRom
-    , title   :: Maybe B.ByteString
+    { _header     :: Header
+    , _trainer    :: Maybe Trainer
+    , _filePrgRom :: PrgRomData
+    , _fileChrRom :: ChrRomData
+    , _title      :: Maybe B.ByteString
     } deriving (Show)
+makeLenses ''NesFile
 
 parseNesFile :: B.ByteString -> NesFile
 parseNesFile = flip runBitGet getNesFile
@@ -80,8 +79,8 @@ getNesFile :: BitGet NesFile
 getNesFile = do
     header' <- getHeader
     trainer' <- bool (return Nothing) (Just <$> getTrainer) $ header'^.hasTrainer
-    prgRom' <- PrgRom <$> getByteString (8 * 16 * 1024 * (header'^.prgConfig.prgRomSize & fromIntegral))
-    chrRom' <- ChrRom <$> getByteString (8 * 8 * 1024 * (header'^.chrConfig.chrRomSize & fromIntegral))
+    prgRomData' <- PrgRomData <$> getByteString (8 * 16 * 1024 * (header'^.prgConfig.prgRomSize & fromIntegral))
+    chrRomData' <- ChrRomData <$> getByteString (8 * 8 * 1024 * (header'^.chrConfig.chrRomSize & fromIntegral))
     -- TODO: Parse PlayChoice ROM data
     bitsLeft <- remaining
     title' <- if bitsLeft == 128 * 8 || bitsLeft == 127 * 8
@@ -89,11 +88,11 @@ getNesFile = do
               else return Nothing
     finished <- isEmpty
     if finished
-        then return $ NesFile { header = header'
-                              , trainer = trainer'
-                              , prgRom = prgRom'
-                              , chrRom = chrRom'
-                              , title = title'
+        then return $ NesFile { _header = header'
+                              , _trainer = trainer'
+                              , _filePrgRom = prgRomData'
+                              , _fileChrRom = chrRomData'
+                              , _title = title'
                               }
         else fail "Extra bytes found at end of file"
 

@@ -24,7 +24,6 @@ executable haskell-entertainment-system
   other-modules:       Cpu Instruction Memory Util ParseNesFile Mapper BitGet
   -- other-extensions:
   build-depends:       base ^>= 4.12,
-                       array ^>= 0.5,
                        mtl ^>= 2.2,
                        lens ^>= 4.17,
                        bytestring ^>= 0.10

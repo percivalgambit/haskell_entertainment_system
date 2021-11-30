@@ -4,10 +4,13 @@
 module Emulator (newEmulator) where
 
 import           Cpu             (HasCpu (..), HasFlags (..))
-import           Mapper          (BankType (..), MappedAddress (..),
-                                  Mapper (..), runMapper)
+import           Mapper          (Mapper (..), runMapper)
 import           Memory          (HasMemory (..))
-import           ParseNesFile    (parseNesFile)
+import           MemoryBank      (BankAddress (..), BankType (..), ChrRomData,
+                                  ChrRomData, PrgRomData, unChrRomData,
+                                  unPrgRomData)
+import           NesFile         (NesFile (..), fileChrRom, filePrgRom,
+                                  parseNesFile)
 
 import           Control.Lens    (Lens', ix, lens, makeLenses, (&), (.~), (^.))
 import           Data.Bits       (bit, testBit, zeroBits, (.|.))
@@ -28,9 +31,9 @@ makeLenses ''Flags
 data Memory = Memory
     { _mainRom :: B.ByteString
     , _mainRam :: B.ByteString
-    , _prgRom  :: B.ByteString
+    , _prgRom  :: PrgRomData
     , _prgRam  :: B.ByteString
-    , _chrRom  :: B.ByteString
+    , _chrRom  :: ChrRomData
     , _chrRam  :: B.ByteString
     , _mapper  :: Mapper
     } deriving (Show)
@@ -58,15 +61,15 @@ instance HasMemory Emulator where
         memoryBank :: BankType -> Lens' Memory B.ByteString
         memoryBank MainRom = mainRom
         memoryBank MainRam = mainRam
-        memoryBank PrgRom  = prgRom
+        memoryBank PrgRom  = prgRom . unPrgRomData
         memoryBank PrgRam  = prgRam
-        memoryBank ChrRom  = chrRom
+        memoryBank ChrRom  = chrRom . unChrRomData
         memoryBank ChrRam  = chrRam
         get :: Emulator -> Word8
-        get e = let (MappedAddress bank n') = runMapper (e^.memory.mapper) n
+        get e = let (BankAddress bank n') = runMapper (e^.memory.mapper) n
                 in e^.memory . memoryBank bank & flip B.index (fromIntegral n')
         set :: Emulator -> Word8 -> Emulator
-        set e val = let (MappedAddress bank n') = runMapper (e^.memory.mapper) n
+        set e val = let (BankAddress bank n') = runMapper (e^.memory.mapper) n
                     in e & memory . memoryBank bank . ix (fromIntegral n') .~ val
 
 instance HasFlags Emulator where
@@ -129,9 +132,9 @@ newEmulator bs = Emulator
     , _memory = Memory
         { _mainRom = B.empty
         , _mainRam = B.empty
-        , _prgRom = B.empty
+        , _prgRom = nesFile^.filePrgRom
         , _prgRam = B.empty
-        , _chrRom = B.empty
+        , _chrRom = nesFile^.fileChrRom
         , _chrRam = B.empty
         , _mapper = Mapper0
         }
