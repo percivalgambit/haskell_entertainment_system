@@ -443,10 +443,11 @@ setupLogging :: [Flag] -> IO Logger
 setupLogging flags = do
   unless (AlsoLogToStderr `elem` flags) $ updateGlobalLogger rootLoggerName Log.removeHandler
   t <- getPOSIXTime
-  when (LogDebug `elem` flags) $ updateGlobalLogger loggerName (Log.setLevel DEBUG)
-  let logFile = fromMaybe ("snakeGame" ++ show t ++ ".log") $ getLogFileFromFlags flags
-  h <- Log.fileHandler logFile DEBUG
-  updateGlobalLogger loggerName $ Log.addHandler h
+  when (LogDebug `elem` flags) $ do
+    updateGlobalLogger loggerName (Log.setLevel DEBUG)
+    let logFile = fromMaybe ("snakeGame" ++ show t ++ ".log") $ getLogFileFromFlags flags
+    h <- Log.fileHandler logFile DEBUG
+    updateGlobalLogger loggerName $ Log.addHandler h
   getLogger loggerName
 
 setupSDL :: IO (SDL.Window, SDL.Renderer, SDL.Texture)

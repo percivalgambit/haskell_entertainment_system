@@ -3,7 +3,7 @@
 module Emulator (Emulator, newEmulator, stepEmulator) where
 
 import Bits (fromBool, packWord16, toWord16)
-import CPU (CPU, StatusFlag, carryFlag, decimalFlag, interruptFlag, negativeFlag, newCpu, overflowFlag, zeroFlag)
+import CPU (CPU, StatusBits (..), StatusFlag, carryFlag, decimalFlag, interruptFlag, negativeFlag, newCpu, overflowFlag, zeroFlag)
 import Control.Arrow ((>>>))
 import qualified Control.Lens as L
 import Control.Lens.Operators ((%=), (.=), (<%=), (<&>), (<+=), (<-=), (<<+=), (<<-=), (<<.=), (^.))
@@ -16,7 +16,7 @@ import Data.Word (Word16, Word8)
 import GHC.Generics (Generic)
 import GHC.Num (subtract)
 import Instructions (AddressingMode (..), Instruction (..), InstructionHeader (..), Opcode (..), Operand (..), decodeInstruction)
-import Memory (Memory, memoryIx, newMemory, readWord16, stackPage)
+import Memory (Memory, interruptAddress, memoryIx, newMemory, readWord16, stackPage)
 import Types (Address)
 
 data Emulator = Emulator
@@ -139,7 +139,13 @@ executeInstruction BIT (_, L.Lens op) = do
 executeInstruction BMI (Just addr, _) = branchIfFlagSet negativeFlag addr
 executeInstruction BNE (Just addr, _) = branchIfFlagClear zeroFlag addr
 executeInstruction BPL (Just addr, _) = branchIfFlagClear negativeFlag addr
-executeInstruction BRK _ = return () -- TODO: implement BRK
+executeInstruction BRK _ = do
+  (pcLo, pcHi) <- L.use $ #cpu . #pc . L.to (+ 1) . L.from packWord16
+  (StatusBits flags) <- L.use $ #cpu . #status
+  pushStack pcHi
+  pushStack pcLo
+  pushStack flags
+  #cpu . #pc .= interruptAddress
 executeInstruction BVC (Just addr, _) = branchIfFlagClear overflowFlag addr
 executeInstruction BVS (Just addr, _) = branchIfFlagSet overflowFlag addr
 executeInstruction CLC _ = #cpu . carryFlag .= False
@@ -227,7 +233,12 @@ executeInstruction ROR (_, L.Lens op) = do
   result <- op <%= (`shiftR` 1)
   op . B.bitAt 7 .= oldCarry
   setZNFlags result
-executeInstruction RTI _ = return () -- TODO: implement RTI
+executeInstruction RTI _ = do
+  flags <- popStack
+  pcLo <- popStack
+  pcHi <- popStack
+  #cpu . #status .= StatusBits flags
+  #cpu . #pc .= L.views packWord16 (+ 1) (pcLo, pcHi)
 executeInstruction RTS _ = do
   pcLo <- popStack
   pcHi <- popStack

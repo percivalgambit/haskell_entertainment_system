@@ -1,12 +1,14 @@
 {-# LANGUAGE RankNTypes #-}
 
-module Memory (Memory, newMemory, stackPage, gameCodeAddress, memoryIx, readWord16, memoryRange) where
+module Memory (Memory, newMemory, stackPage, gameCodeAddress, interruptAddress, memoryIx, readWord16, memoryRange) where
 
 import Bits (packWord16)
 import qualified Control.Lens as L
 import Control.Lens.Operators ((&), (.~))
 import qualified Control.Lens.Unsound as L (lensProduct)
+import Data.Bits ((.&.))
 import qualified Data.ByteString as BS
+import Data.Ix (inRange)
 import Data.Word (Word16, Word8)
 import Numeric (showHex)
 import Types (Address)
@@ -17,16 +19,26 @@ stackPage = 0x01
 gameCodeAddress :: Address
 gameCodeAddress = 0x0600
 
+interruptAddress :: Address
+interruptAddress = 0xFFFE
+
 newtype Memory = Memory BS.ByteString deriving (Show)
 
 newMemory :: Memory
 newMemory = Memory $ BS.pack (replicate 0x07FF 0)
 
-memoryIx :: Address -> L.IndexedLens' Address Memory Word8
-memoryIx addr = L.ilens getter setter
+directMemoryIx :: Address -> L.IndexedLens' Address Memory Word8
+directMemoryIx addr = L.ilens getter setter
   where
     getter (Memory mem) = (addr, mem `BS.index` addrInt)
     setter (Memory mem) val = Memory $ mem & L.ix addrInt .~ val
+    addrInt = fromIntegral addr
+
+memoryIx :: Address -> L.IndexedLens' Address Memory Word8
+memoryIx addr
+  | inRange (0x0000, 0x1FFF) addrInt = directMemoryIx (addr .&. 0x07FF)
+  | otherwise = error $ "Memory access at address 0x" ++ showHex addr " unsupported"
+  where
     addrInt = fromIntegral addr
 
 readWord16 :: Address -> L.Getter Memory Word16
@@ -37,7 +49,7 @@ memoryRange (startAddr, endAddr) = L.lens getter setter
   where
     getter (Memory mem) = mem & BS.drop startAddrInt & BS.take sizeInt
     setter (Memory mem) data' =
-      if BS.length data' /= fromIntegral (endAddr - startAddr)
+      if BS.length data' /= sizeInt
         then
           error $
             "Size mismatch: trying to write data of size "

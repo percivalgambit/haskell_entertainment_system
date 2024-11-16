@@ -3,6 +3,7 @@
 module CPU
   ( CPU,
     StatusFlag,
+    StatusBits (..),
     newCpu,
     carryFlag,
     zeroFlag,
