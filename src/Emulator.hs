@@ -17,6 +17,7 @@ import GHC.Generics (Generic)
 import GHC.Num (subtract)
 import Instructions (AddressingMode (..), Instruction (..), InstructionHeader (..), Opcode (..), Operand (..), decodeInstruction)
 import Memory (Memory, interruptAddress, memoryIx, newMemory, readWord16, stackPage)
+import Rom (Rom, newRom)
 import Types (Address)
 
 data Emulator = Emulator
@@ -25,12 +26,8 @@ data Emulator = Emulator
   }
   deriving (Generic, Show)
 
-newEmulator :: Emulator
-newEmulator =
-  Emulator
-    { cpu = newCpu,
-      memory = newMemory
-    }
+newEmulator :: Rom -> Emulator
+newEmulator rom = Emulator {cpu = newCpu, memory = newMemory rom}
 
 readPC :: (MonadState Emulator m) => m Word8
 readPC = do

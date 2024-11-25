@@ -1,8 +1,9 @@
-module Bits (toWord16, packWord16, fromBool) where
+module Bits (toWord16, packWord16, fromBool, maskValue) where
 
 import qualified Control.Lens as L
 import Control.Lens.Operators ((&), (.~))
 import qualified Control.Lens.Unsound as L (lensProduct)
+import Data.Bits (FiniteBits (countTrailingZeros), shiftR, (.&.))
 import qualified Data.Bits.Lens as B
 import Data.Word (Word16, Word8)
 
@@ -18,3 +19,10 @@ packWord16 = L.iso forward backward
 fromBool :: (Integral b) => Bool -> b
 fromBool True = 1
 fromBool False = 0
+
+type Mask = Word8
+
+maskValue :: Mask -> Word8 -> Word8
+maskValue mask word = (word .&. mask) `shiftR` trailingZeros
+  where
+    trailingZeros = countTrailingZeros mask

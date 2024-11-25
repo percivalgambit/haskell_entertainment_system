@@ -11,6 +11,7 @@ import qualified Data.ByteString as BS
 import Data.Ix (inRange)
 import Data.Word (Word16, Word8)
 import Numeric (showHex)
+import Rom (Rom (..))
 import Types (Address)
 
 stackPage :: Word8
@@ -22,33 +23,49 @@ gameCodeAddress = 0x0600
 interruptAddress :: Address
 interruptAddress = 0xFFFE
 
-newtype Memory = Memory BS.ByteString deriving (Show)
+data Memory = Memory
+  { internalRam :: BS.ByteString,
+    prgRom :: BS.ByteString
+  }
+  deriving (Show)
 
-newMemory :: Memory
-newMemory = Memory $ BS.pack (replicate 0x07FF 0)
-
-directMemoryIx :: Address -> L.IndexedLens' Address Memory Word8
-directMemoryIx addr = L.ilens getter setter
-  where
-    getter (Memory mem) = (addr, mem `BS.index` addrInt)
-    setter (Memory mem) val = Memory $ mem & L.ix addrInt .~ val
-    addrInt = fromIntegral addr
+newMemory :: Rom -> Memory
+newMemory (Rom {prgRom}) =
+  Memory
+    { internalRam =
+        BS.pack (replicate 0x07FF 0),
+      prgRom
+    }
 
 memoryIx :: Address -> L.IndexedLens' Address Memory Word8
-memoryIx addr
-  | inRange (0x0000, 0x1FFF) addrInt = directMemoryIx (addr .&. 0x07FF)
-  | otherwise = error $ "Memory access at address 0x" ++ showHex addr " unsupported"
+memoryIx addr = L.ilens getter setter
   where
-    addrInt = fromIntegral addr
+    inRange = flip Data.Ix.inRange (fromIntegral addr)
+    getter (Memory {internalRam, prgRom}) =
+      ( addr,
+        if
+          | inRange (0x0000, 0x1FFF) ->
+              internalRam `BS.index` fromIntegral (addr .&. 0x07FF)
+          | inRange (0x8000, 0xFFFF) ->
+              prgRom `BS.index` (fromIntegral addr `mod` BS.length prgRom)
+          | otherwise -> error $ "Memory read at address 0x" ++ showHex addr " unsupported"
+      )
+    setter mem@(Memory {internalRam}) val
+      | inRange (0x0000, 0x1FFF) =
+          mem {internalRam = internalRam & L.ix (fromIntegral $ addr .&. 0x07FF) .~ val}
+      | inRange (0x8000, 0xFFFF) =
+          error $ "Attempt to write cartridge rom space at address 0x" ++ showHex addr ""
+      | otherwise = error $ "Memory write at address 0x" ++ showHex addr " unsupported"
 
 readWord16 :: Address -> L.Getter Memory Word16
 readWord16 addr = L.lensProduct (memoryIx addr) (memoryIx $ addr + 1) . packWord16
 
+-- TODO: make function work with other types of memory besides internal ram
 memoryRange :: (Address, Address) -> L.Lens' Memory BS.ByteString
 memoryRange (startAddr, endAddr) = L.lens getter setter
   where
-    getter (Memory mem) = mem & BS.drop startAddrInt & BS.take sizeInt
-    setter (Memory mem) data' =
+    getter (Memory {internalRam}) = internalRam & BS.drop startAddrInt & BS.take sizeInt
+    setter (Memory {internalRam, prgRom}) data' =
       if BS.length data' /= sizeInt
         then
           error $
@@ -59,9 +76,12 @@ memoryRange (startAddr, endAddr) = L.lens getter setter
               ++ showHex endAddr "), size "
               ++ show sizeInt
         else
-          let firstPart = BS.take startAddrInt mem
-              lastPart = BS.drop endAddrInt mem
-           in Memory $ BS.concat [firstPart, data', lastPart]
+          let firstPart = BS.take startAddrInt internalRam
+              lastPart = BS.drop endAddrInt internalRam
+           in Memory
+                { internalRam = BS.concat [firstPart, data', lastPart],
+                  prgRom
+                }
     startAddrInt = fromIntegral startAddr
     endAddrInt = fromIntegral endAddr
     sizeInt = fromIntegral $ endAddr - startAddr

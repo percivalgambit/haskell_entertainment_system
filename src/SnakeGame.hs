@@ -18,6 +18,7 @@ import Data.Word (Word16, Word8)
 import Emulator (Emulator (..), newEmulator, stepEmulator)
 import Instructions (Instruction (..), Opcode (..))
 import Memory (gameCodeAddress, memoryIx, memoryRange, readWord16)
+import Rom (Mirroring (..), Rom (..))
 import SDL (V2 (..), ($=))
 import qualified SDL
 import qualified SDL.Raw.Types as SDL (Color (..))
@@ -432,7 +433,14 @@ snakeGame = do
   flags <- parseArgs
   logger <- setupLogging flags
   (window, renderer, texture) <- setupSDL
-  let emulator = newEmulator & gameCodeAddrSpace .~ gameCode
+  let noRom =
+        Rom
+          { prgRom = BS.empty,
+            chrRom = BS.empty,
+            mapper = 0,
+            mirroring = VERTICAL
+          }
+  let emulator = newEmulator noRom & gameCodeAddrSpace .~ gameCode
   let screenData = ScreenData $ BS.replicate (32 * 3) 0
   stdGen <- initStdGen
   gameLoop stdGen logger renderer texture emulator screenData
