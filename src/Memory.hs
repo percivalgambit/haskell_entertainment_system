@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
-module Memory (Memory, newMemory, stackPage, gameCodeAddress, interruptAddress, memoryIx, readWord16, memoryRange) where
+module Memory (Memory, newMemory, stackPage, interruptAddress, memoryIx, readWord16, memoryRange) where
 
 import Bits (packWord16)
 import qualified Control.Lens as L
@@ -16,9 +16,6 @@ import Types (Address)
 
 stackPage :: Word8
 stackPage = 0x01
-
-gameCodeAddress :: Address
-gameCodeAddress = 0x0600
 
 interruptAddress :: Address
 interruptAddress = 0xFFFE

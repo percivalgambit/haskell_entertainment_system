@@ -23,7 +23,6 @@ import Data.Generics.Labels ()
 import Data.List (intercalate)
 import Data.Word (Word16, Word8)
 import GHC.Generics (Generic)
-import Memory (gameCodeAddress)
 
 carryIx, zeroIx, interruptIx, decimalIx, overflowIx, negativeIx :: Int
 carryIx = 0
@@ -61,8 +60,8 @@ data CPU = CPU
   }
   deriving (Show, Generic)
 
-newCpu :: CPU
-newCpu =
+newCpu :: Word16 -> CPU
+newCpu gameCodeAddress =
   CPU
     { pc = gameCodeAddress,
       sp = 0xFD,

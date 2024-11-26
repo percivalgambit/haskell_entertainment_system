@@ -27,7 +27,10 @@ data Emulator = Emulator
   deriving (Generic, Show)
 
 newEmulator :: Rom -> Emulator
-newEmulator rom = Emulator {cpu = newCpu, memory = newMemory rom}
+newEmulator rom = Emulator {cpu = newCpu gameCodeAddress, memory}
+  where
+    memory = newMemory rom
+    gameCodeAddress = memory ^. readWord16 0xFFFC
 
 readPC :: (MonadState Emulator m) => m Word8
 readPC = do
