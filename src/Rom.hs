@@ -1,4 +1,3 @@
-{-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Rom (Rom (..), Mirroring (..), newRom) where

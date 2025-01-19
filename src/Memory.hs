@@ -10,8 +10,8 @@ import Data.Bits ((.&.))
 import qualified Data.ByteString as BS
 import Data.Ix (inRange)
 import Data.Word (Word16, Word8)
-import Numeric (showHex)
 import Rom (Rom (..))
+import Text.Printf (printf)
 import Types (Address)
 
 stackPage :: Word8
@@ -30,7 +30,7 @@ newMemory :: Rom -> Memory
 newMemory (Rom {prgRom}) =
   Memory
     { internalRam =
-        BS.pack (replicate 0x07FF 0),
+        BS.pack (replicate 0x0800 0),
       prgRom
     }
 
@@ -42,17 +42,17 @@ memoryIx addr = L.ilens getter setter
       ( addr,
         if
           | inRange (0x0000, 0x1FFF) ->
-              internalRam `BS.index` fromIntegral (addr .&. 0x07FF)
+              internalRam `BS.index` (fromIntegral addr .&. 0x07FF)
           | inRange (0x8000, 0xFFFF) ->
-              prgRom `BS.index` (fromIntegral addr `mod` BS.length prgRom)
-          | otherwise -> error $ "Memory read at address 0x" ++ showHex addr " unsupported"
+              prgRom `BS.index` ((fromIntegral addr - 0x8000) `mod` BS.length prgRom)
+          | otherwise -> error $ printf "Memory read at address 0x%04X unsupported" addr
       )
     setter mem@(Memory {internalRam}) val
       | inRange (0x0000, 0x1FFF) =
           mem {internalRam = internalRam & L.ix (fromIntegral $ addr .&. 0x07FF) .~ val}
       | inRange (0x8000, 0xFFFF) =
-          error $ "Attempt to write cartridge rom space at address 0x" ++ showHex addr ""
-      | otherwise = error $ "Memory write at address 0x" ++ showHex addr " unsupported"
+          error $ printf "Attempt to write cartridge rom space at address 0x%04X" addr
+      | otherwise = error $ printf "Memory write to address 0x%04X unsupported" addr
 
 readWord16 :: Address -> L.Getter Memory Word16
 readWord16 addr = L.lensProduct (memoryIx addr) (memoryIx $ addr + 1) . packWord16
@@ -66,12 +66,12 @@ memoryRange (startAddr, endAddr) = L.lens getter setter
       if BS.length data' /= sizeInt
         then
           error $
-            "Size mismatch: trying to write data of size "
-              ++ show (BS.length data')
-              ++ " to memory region from (0x"
-              ++ showHex startAddr "-0x"
-              ++ showHex endAddr "), size "
-              ++ show sizeInt
+            printf
+              "Size mismatch: trying to write data of size %d to memory region from (0x%04X-0x%04X), size %d"
+              (BS.length data')
+              startAddr
+              endAddr
+              sizeInt
         else
           let firstPart = BS.take startAddrInt internalRam
               lastPart = BS.drop endAddrInt internalRam

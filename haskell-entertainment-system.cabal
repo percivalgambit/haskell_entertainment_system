@@ -24,9 +24,10 @@ extra-source-files:
     README.md
 
 library
-    exposed-modules:  Emulator SnakeGame
+    exposed-modules:  CPU Emulator Instructions Memory Rom SnakeGame
 
     default-extensions:
+        BinaryLiterals
         DeriveGeneric
         FlexibleContexts
         DuplicateRecordFields
@@ -39,13 +40,14 @@ library
         OverloadedStrings
 
     -- Modules included in this library but not exported.
-    other-modules: Bits CPU Instructions Memory Rom Types
+    other-modules: Bits Types
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions:
         ImpredicativeTypes
         PatternSynonyms
         RankNTypes
+        RecordWildCards
     build-depends:
         base ^>=4.16.4.0,
         binary ^>=0.8.9.2,
@@ -68,7 +70,8 @@ executable haskell-entertainment-system
     -- other-modules:
 
     -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
+    other-extensions:
+        OverloadedLabels
     build-depends:
         base ^>=4.16.4.0,
         haskell-entertainment-system
@@ -76,19 +79,21 @@ executable haskell-entertainment-system
     hs-source-dirs:   app
     default-language: Haskell2010
 
-test-suite tests
-    main-is:          Spec.hs
+test-suite nestest
+    main-is:          Main.hs
     type:             exitcode-stdio-1.0
 
-    Modules included in this executable, other than Main.
+    -- Modules included in this executable, other than Main.
     -- other-modules:
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:
         base ^>=4.16.4.0,
-        hspec ^>=2.11.8,
-        haskell-entertainment-system
+        haskell-entertainment-system,
+        hslogger ^>= 1.3.1.1,
+        lens  ^>= 5.3.1,
+        mtl ^>= 2.3.1
 
-    hs-source-dirs:   tests
+    hs-source-dirs:   tests/nestest
     default-language: Haskell2010

@@ -11,6 +11,7 @@ module CPU
     decimalFlag,
     overflowFlag,
     negativeFlag,
+    showRegisters,
   )
 where
 
@@ -23,6 +24,7 @@ import Data.Generics.Labels ()
 import Data.List (intercalate)
 import Data.Word (Word16, Word8)
 import GHC.Generics (Generic)
+import Text.Printf (printf)
 
 carryIx, zeroIx, interruptIx, decimalIx, overflowIx, negativeIx :: Int
 carryIx = 0
@@ -93,3 +95,7 @@ overflowFlag = statusFlag overflowIx
 
 negativeFlag :: StatusFlag
 negativeFlag = statusFlag negativeIx
+
+showRegisters :: CPU -> String
+showRegisters (CPU {a, x, y, status = (StatusBits status), sp}) =
+  printf "A:%02X X:%02X Y:%02X P:%02X SP:%02X" a x y status sp

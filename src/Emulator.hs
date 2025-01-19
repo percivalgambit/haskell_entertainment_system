@@ -42,11 +42,18 @@ readPCWord16 = liftM2 (,) readPC readPC <&> L.view packWord16
 
 stepEmulator :: (MonadState Emulator m) => m Instruction
 stepEmulator = do
-  (InstructionHeader opcode mode) <- decodeInstruction <$> readPC
+  opcodeByte <- readPC
+  let (InstructionHeader opcode mode) = decodeInstruction opcodeByte
   operand <- readOperand mode
   target <- gets $ toTarget mode operand
   executeInstruction opcode target
-  return $ Instruction opcode mode operand
+  return
+    Instruction
+      { opcode = opcode,
+        opcodeByte = opcodeByte,
+        addressingMode = mode,
+        operand = operand
+      }
 
 readOperand :: (MonadState Emulator m) => AddressingMode -> m Operand
 readOperand Implicit = return NoOperand

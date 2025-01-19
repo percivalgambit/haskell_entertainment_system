@@ -225,9 +225,9 @@ showScreenLocation val = "stripLocation: " ++ show lo ++ ", stripNum: " ++ show 
     (lo, hi) = val ^. L.from packWord16
 
 isBrk :: Instruction -> Bool
-isBrk (Instruction BRK _ _) = True
+isBrk (Instruction {opcode = BRK}) = True
 isBrk _ = False
 
 isNop :: Instruction -> Bool
-isNop (Instruction NOP _ _) = True
+isNop (Instruction {opcode = NOP}) = True
 isNop _ = False

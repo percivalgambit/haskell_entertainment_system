@@ -1,7 +1,19 @@
-module Instructions (Opcode (..), AddressingMode (..), InstructionHeader (..), Instruction (..), Operand (..), decodeInstruction) where
+module Instructions
+  ( Opcode (..),
+    AddressingMode (..),
+    InstructionHeader (..),
+    Instruction (..),
+    Operand (..),
+    decodeInstruction,
+    instructionBytes,
+  )
+where
 
+import Bits (packWord16)
+import qualified Control.Lens as L
+import Control.Lens.Operators ((^.))
 import Data.Word (Word8)
-import Numeric (showHex)
+import Text.Printf (printf)
 import Types (Address)
 
 data Opcode
@@ -233,25 +245,40 @@ decodeInstruction 0xF8 = InstructionHeader SED Implicit
 decodeInstruction 0xF9 = InstructionHeader SBC AbsoluteY
 decodeInstruction 0xFD = InstructionHeader SBC AbsoluteX
 decodeInstruction 0xFE = InstructionHeader INC AbsoluteX
-decodeInstruction i = error $ "Illegal opcode: 0x" ++ showHex i ""
+decodeInstruction i = error $ printf "Illegal opcode: 0x%02X" i
 
 data Operand = DataOperand Word8 | AddressOperand Address | NoOperand
   deriving (Show)
 
-data Instruction = Instruction Opcode AddressingMode Operand
+data Instruction = Instruction
+  { opcode :: Opcode,
+    opcodeByte :: Word8,
+    addressingMode :: AddressingMode,
+    operand :: Operand
+  }
 
 instance Show Instruction where
   show :: Instruction -> String
-  show (Instruction op Implicit NoOperand) = show op
-  show (Instruction op Accumulator NoOperand) = show op ++ " A"
-  show (Instruction op Immediate (DataOperand val)) = show op ++ " #$" ++ showHex val ""
-  show (Instruction op ZeroPage (DataOperand val)) = show op ++ " $" ++ showHex val ""
-  show (Instruction op ZeroPageX (DataOperand val)) = show op ++ " $" ++ showHex val ",X"
-  show (Instruction op ZeroPageY (DataOperand val)) = show op ++ " $" ++ showHex val ",Y"
-  show (Instruction op Relative (DataOperand val)) = show op ++ " $" ++ showHex val ""
-  show (Instruction op Absolute (AddressOperand addr)) = show op ++ " $" ++ showHex addr ""
-  show (Instruction op AbsoluteX (AddressOperand addr)) = show op ++ " $" ++ showHex addr ",X"
-  show (Instruction op AbsoluteY (AddressOperand addr)) = show op ++ " $" ++ showHex addr ",Y"
-  show (Instruction op Indirect (AddressOperand addr)) = show op ++ " ($" ++ showHex addr ")"
-  show (Instruction op IndexedIndirect (DataOperand val)) = show op ++ " ($" ++ showHex val ",X)"
-  show (Instruction op IndirectIndexed (DataOperand val)) = show op ++ " ($" ++ showHex val "),Y"
+  show (Instruction {opcode, addressingMode, operand}) =
+    show opcode ++ case (addressingMode, operand) of
+      (Implicit, NoOperand) -> ""
+      (Accumulator, NoOperand) -> " A"
+      (Immediate, DataOperand val) -> printf " #$%02X" val
+      (ZeroPage, DataOperand val) -> printf " $%02X" val
+      (ZeroPageX, DataOperand val) -> printf " $%02X,X" val
+      (ZeroPageY, DataOperand val) -> printf " $%02X,Y" val
+      (Relative, DataOperand val) -> printf " $%02X" val
+      (Absolute, AddressOperand addr) -> printf " $%04X" addr
+      (AbsoluteX, AddressOperand addr) -> printf " $%04X,X" addr
+      (AbsoluteY, AddressOperand addr) -> printf " $%04X,Y" addr
+      (Indirect, AddressOperand addr) -> printf " ($%04X)" addr
+      (IndexedIndirect, DataOperand val) -> printf "($%02X,X)" val
+      (IndirectIndexed, DataOperand val) -> printf " ($%02X),Y" val
+
+instructionBytes :: Instruction -> [Word8]
+instructionBytes (Instruction {opcodeByte, operand}) = case operand of
+  NoOperand -> [opcodeByte]
+  DataOperand val -> [opcodeByte, val]
+  AddressOperand addr -> [opcodeByte, byte1, byte2]
+    where
+      (byte1, byte2) = addr ^. L.from packWord16
